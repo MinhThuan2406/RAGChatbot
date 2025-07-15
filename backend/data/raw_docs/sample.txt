@@ -1,3 +1,0 @@
-This is a sample test document for RAGChatbot ingestion.
-
-You can delete or replace this file as needed for your own data ingestion tests.

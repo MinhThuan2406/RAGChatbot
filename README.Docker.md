@@ -1,26 +1,61 @@
-### Building and running your application
 
-When you're ready, start your application by running:
-`docker compose up --build`.
+# RAGChatbot Docker & Deployment Guide
 
-Your services will be available at:
-- FastAPI backend (rag-api): http://localhost:8001
-- ChromaDB vector database: http://localhost:8000
-- Ollama LLM API: http://localhost:11434
-- Chatbot UI: http://localhost:3000
+---
 
-### Deploying your application to the cloud
+## Quick Start
 
-First, build your image, e.g.: `docker build -t myapp .`.
-If your cloud uses a different CPU architecture than your development
-machine (e.g., you are on a Mac M1 and your cloud provider is amd64),
-you'll want to build the image for that platform, e.g.:
-`docker build --platform=linux/amd64 -t myapp .`.
+1. **Build and run all services:**
+   ```sh
+   docker compose up --build
+   ```
 
-Then, push it to your registry, e.g. `docker push myregistry.com/myapp`.
+2. **Service URLs:**
+   - FastAPI backend (rag-api): [http://localhost:8001](http://localhost:8001)
+   - ChromaDB vector database: [http://localhost:8000](http://localhost:8000)
+   - Ollama LLM API: [http://localhost:11434](http://localhost:11434)
+   - Chatbot UI: [http://localhost:3000](http://localhost:3000)
 
-Consult Docker's [getting started](https://docs.docker.com/go/get-started-sharing/)
-docs for more detail on building and pushing.
+---
 
-### References
-* [Docker's Python guide](https://docs.docker.com/language/python/)
+## Expose Your Project Publicly with Ngrok
+
+You can use [Ngrok](https://ngrok.com/) to share your local services for quick demos or remote access.
+
+**Expose the FastAPI backend:**
+1. [Download Ngrok](https://ngrok.com/download) and install it.
+2. Start your stack as above.
+3. In a new terminal, run:
+   ```sh
+   ngrok http 8001
+   ```
+   Ngrok will provide a public URL forwarding to your FastAPI backend.
+
+**Expose other ports:**
+   - For the UI: `ngrok http 3000`
+   - For ChromaDB: `ngrok http 8000`
+
+**Security note:** For production or sensitive data, always use authentication and HTTPS with Ngrok.
+
+---
+
+## Deploying to the Cloud
+
+1. **Build your image:**
+   ```sh
+   docker build -t myapp .
+   ```
+2. **For different CPU architectures:**
+   ```sh
+   docker build --platform=linux/amd64 -t myapp .
+   ```
+3. **Push to your registry:**
+   ```sh
+   docker push myregistry.com/myapp
+   ```
+4. See Docker's [getting started guide](https://docs.docker.com/go/get-started-sharing/) for more details.
+
+---
+
+## References
+- [Docker's Python guide](https://docs.docker.com/language/python/)

@@ -4,7 +4,6 @@ def check_chromadb_connection(host: str, port: int):
     """Checks if a ChromaDB server is running at the given host and port."""
     try:
         client = chromadb.HttpClient(host=host, port=port)
-        # Attempt a simple operation to check connection
         client.list_collections()
         print(f"Successfully connected to ChromaDB at {host}:{port}")
         return True
@@ -15,5 +14,8 @@ def check_chromadb_connection(host: str, port: int):
         print(f"An unexpected error occurred while connecting to ChromaDB: {e}")
         return False
 
-# Example usage (replace with your ChromaDB host and port)
+# Example usage (ChromaDB host name & port)
 check_chromadb_connection("localhost", 8000)
+
+# Run this in terminal to quick check 
+# curl http://localhost:8000/api/v2/heartbeat

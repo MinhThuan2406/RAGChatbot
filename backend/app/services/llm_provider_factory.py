@@ -1,16 +1,21 @@
-# backend/app/services/llm_provider_factory.py
 from ..core.config import settings
 from ..core.interfaces import AbstractLLMClient, AbstractEmbeddingClient
-# Import specific adapters
-from..adapters.ollama_adapter import OllamaAdapter
+from ..adapters.ollama_adapter import OllamaAdapter
+from ..adapters.openai_adapter import OpenAIAdapter
+import os
+from typing import Optional
 
 class LLMFactory:
     @staticmethod
-    def get_llm_client() -> AbstractLLMClient:
-        # Only Ollama (Llama 3.2) is supported
+    def get_llm_client(provider: Optional[str] = None) -> AbstractLLMClient:
+        provider_str = (provider or os.getenv("LLM_PROVIDER", "ollama")).lower()
+        if provider_str == "openai":
+            return OpenAIAdapter(api_key=os.getenv("OPENAI_API_KEY", ""))
         return OllamaAdapter(host=settings.OLLAMA_HOST, port=settings.OLLAMA_PORT)
 
     @staticmethod
-    def get_embedding_client() -> AbstractEmbeddingClient:
-        # Only Ollama (Llama 3.2) is supported
+    def get_embedding_client(provider: Optional[str] = None) -> AbstractEmbeddingClient:
+        provider_str = (provider or os.getenv("LLM_PROVIDER", "ollama")).lower()
+        if provider_str == "openai":
+            return OpenAIAdapter(api_key=os.getenv("OPENAI_API_KEY", ""))
         return OllamaAdapter(host=settings.OLLAMA_HOST, port=settings.OLLAMA_PORT)

@@ -11,14 +11,14 @@ async def upload_document(file: UploadFile = File(...)):
     if not file.filename or not file.filename.endswith(".pdf"):
         raise HTTPException(status_code=400, detail="Only PDF files are supported.")
 
-    file_location = f"data/raw_docs/{file.filename}"
-    os.makedirs(os.path.dirname(file_location), exist_ok=True)
+    upload_dir = "/app/data/raw_docs"
+    os.makedirs(upload_dir, exist_ok=True)
+    file_location = os.path.join(upload_dir, file.filename)
 
     try:
         with open(file_location, "wb+") as file_object:
             file_object.write(await file.read())
 
-        # Ingest the document into ChromaDB
         await ingestion_service.ingest_document(file_location, file.filename or "uploaded.pdf")
 
         return {"message": f"Successfully uploaded and ingested {file.filename}"}

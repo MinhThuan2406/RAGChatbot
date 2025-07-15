@@ -1,4 +1,3 @@
-# backend/app/adapters/openai_adapter.py
 from openai import AsyncOpenAI
 from..services.llm_provider_factory import AbstractLLMClient, AbstractEmbeddingClient
 
@@ -16,7 +15,6 @@ class OpenAIAdapter(AbstractLLMClient, AbstractEmbeddingClient):
             messages=messages,
             max_tokens=500
         )
-        # OpenAI SDK returns a list of choices, each with a message
         content = response.choices[0].message.content
         return content if content is not None else ""
 
@@ -25,6 +23,5 @@ class OpenAIAdapter(AbstractLLMClient, AbstractEmbeddingClient):
             model="text-embedding-ada-002",
             input=[text]
         )
-        # OpenAI SDK returns a list of data, each with an embedding
         embedding = response.data[0].embedding
         return embedding if embedding is not None else []
