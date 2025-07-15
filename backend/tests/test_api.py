@@ -1,10 +1,8 @@
 import pytest
 from httpx import AsyncClient, ASGITransport
-from pytest_mock import MockerFixture
 
-# Patch LLM and embedding calls BEFORE importing the app
-@pytest.fixture(autouse=True, scope="module")
-def patch_llm_and_embedding(mocker: MockerFixture):
+@pytest.fixture(autouse=True)
+def patch_llm_and_embedding(mocker):
     # Patch OllamaAdapter
     mocker.patch(
         "app.services.llm_provider_factory.OllamaAdapter.generate_response",
@@ -24,7 +22,6 @@ def patch_llm_and_embedding(mocker: MockerFixture):
         return_value=[0.4, 0.5, 0.6]
     )
 
-# Now import the app after the client is mocked
 from app.main import app
 
 @pytest.mark.asyncio
@@ -34,8 +31,11 @@ async def test_chat_endpoint():
         response = await ac.post("/api/chat/", json={"query": "What is this project about?", "provider": "openai"})
         assert response.status_code == 200
         assert "mocked" in response.json().get("answer", "")
-
+        response = await ac.post("/api/chat/", json={"query": "What is this project about?", "provider": "openai"})
+        assert response.status_code == 200
+        assert "mocked" in response.json().get("answer", "")
+    # You can mock the ingestion_service.ingest_document here if needed
 @pytest.mark.asyncio
-async def test_upload_document(monkeypatch, mocker: MockerFixture):
+async def test_upload_document(monkeypatch, mocker):
     # You can mock the ingestion_service.ingest_document here if needed
     pass  # Implement as needed
