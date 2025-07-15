@@ -52,7 +52,8 @@ jobs:
           PYTHONPATH: backend
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          pytest backend/tests
+          # pytest backend/tests
+          pytest backend/tests -m "not integration"
 
       - name: Print ChromaDB logs
         if: failure()

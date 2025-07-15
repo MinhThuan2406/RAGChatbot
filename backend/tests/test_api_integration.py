@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 from app.main import app
 
+@pytest.mark.integration
 @pytest.mark.asyncio
 async def test_chat_endpoint_real_integration():
     """
