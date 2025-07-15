@@ -49,6 +49,7 @@ jobs:
         env:
           CHROMA_HOST: localhost
           CHROMA_PORT: 8000
+          PYTHONPATH: backend
         run: |
           pytest backend/tests
 

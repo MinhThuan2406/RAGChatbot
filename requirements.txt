@@ -9,6 +9,7 @@ python-dotenv
 pytest
 pytest-asyncio
 pytest-cov
+pytest-mock
 requests
 langchain
 openai
