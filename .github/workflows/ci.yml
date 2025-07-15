@@ -50,6 +50,7 @@ jobs:
           CHROMA_HOST: localhost
           CHROMA_PORT: 8000
           PYTHONPATH: backend
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
           pytest backend/tests
 
