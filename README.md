@@ -6,7 +6,7 @@ A modular, containerized Retrieval-Augmented Generation (RAG) chatbot stack usin
 
 ## 🚦 Project Status
 
-This project is under active development and review by **Anh Khiêm**. Contributions and feedback are welcome!
+This project is under active development. Contributions and feedback are welcome!
 
 ---
 
