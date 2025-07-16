@@ -1,75 +1,124 @@
 # RAGChatbot
 
-## A Small Side Project Utilizing Docker, Ngrok, and Other Utilities to Build a Local Chatbot
+A modular, containerized Retrieval-Augmented Generation (RAG) chatbot stack using FastAPI, ChromaDB, Ollama, and a modern web UI. Easily deployable locally or for remote access via Ngrok.
 
 ---
 
-### 📌 Project Status
-The project section is currently under review by **Anh Khiêm**. While waiting, it's recommended to explore the following key concepts and technologies to prepare for implementation.
+## 🚦 Project Status
+
+This project is under active development and review by **Anh Khiêm**. Contributions and feedback are welcome!
 
 ---
 
-### 🧠 Topics to Explore
+## 🏗️ Architecture Overview
 
-#### 1. **FastAPI & Flask**
-- Build APIs to serve responses from LLMs.
-- Allow integration with frontend clients.
-- Support multiple endpoints and request types for inference.
-
-#### 2. **OOP & Design Patterns**
-- Write flexible, maintainable code using principles like SOLID.
-- Support interchangeable components (e.g., OpenAI, Anthropic, Ollama).
-- Encapsulate logic for:
-  - LLM providers
-  - Embedding services
-  - Vector databases
-  - Routing and fallback mechanisms
-
-#### 3. **Streamlit & OpenWebUI**
-- Rapidly prototype interactive user interfaces for LLM applications.
-- Connect backend APIs to the frontend with minimal effort.
-- Support chat history, user inputs, and debug outputs.
-
-#### 4. **Docker**
-- Containerize all services for isolated and reproducible environments.
-- Use `docker-compose` for managing dependencies and orchestration.
-- Enable fast deployment and teardown.
-
-#### 5. **Vector Databases**
-- Learn to configure and use:
-  - **Simple**: ChromaDB (lightweight, file-based)
-  - **Advanced**: Supabase/PostgreSQL with pgvector extension
-- Store embeddings and documents for RAG-based querying.
+- **Backend API:** FastAPI (serves chat and ingest endpoints)
+- **Vector Store:** ChromaDB (stores document embeddings)
+- **LLM Provider:** Ollama (local LLM inference)
+- **Frontend:** Open WebUI or Streamlit (user chat interface)
+- **Orchestration:** Docker Compose (all services containerized)
+- **Remote Access:** Ngrok (optional, for public URLs)
 
 ---
 
-### 🚀 Final Project Goals: RAG-Based Chatbot
+## 🚀 Quick Start
 
-Once the foundational skills are covered, build a complete Retrieval-Augmented Generation chatbot system with the following **project criteria**:
+See [README.Docker.md](README.Docker.md) for full deployment instructions.
 
-#### ✅ Functional Requirements
-- Accurate answers using RAG from stored documents.
-- All services must be containerized using Docker.
-- Deployable through **NGROK** for quick access.
-- User-friendly **web interface** (via Streamlit/OpenWebUI).
-- Backend API served through **FastAPI** or **Flask**.
-- Clean, modular, and extensible codebase with best practices.
+1. **Clone the repository:**
+   ```sh
+   git clone https://github.com/yourusername/RAGChatbot.git
+   cd RAGChatbot
+   ```
 
-#### 🗂 Project Components
-- **LLM API Wrapper** (OpenAI, Ollama, etc.)
-- **Document Uploader & Indexer** (PDFs, Markdown, etc.)
-- **Vector Store Manager** (Chroma/Supabase)
-- **Query Router** (LLM + retriever logic)
-- **Frontend Interface** (chat history, input/output display)
-- **Docker & Deployment** (Dockerfile, docker-compose, ngrok)
+2. **Build and run all services:**
+   ```sh
+   docker compose up --build
+   ```
+
+3. **Access the services:**
+   - Backend API: [http://localhost:8001](http://localhost:8001)
+   - ChromaDB: [http://localhost:8000](http://localhost:8000)
+   - Ollama: [http://localhost:11434](http://localhost:11434)
+   - Web UI: [http://localhost:3000](http://localhost:3000)
+
+4. **Expose via Ngrok (optional):**
+   ```sh
+   ngrok http --region=ap 8001
+   ```
+
+   > **Tip:** To always use the Asia Pacific region (best for Vietnam), set the environment variable in your `.env` file:
+   >
+   > ```env
+   > NGROK_REGION=ap
+   > ```
+   >
+   > Or, use the `--region=ap` flag every time you run ngrok. This ensures lower latency for users in Asia.
 
 ---
 
-### ✅ Success Criteria
-- 📦 Fully containerized system
-- 💬 Chatbot can respond correctly to domain-specific queries
-- 🌐 Accessible via public URL (Ngrok tunnel)
-- 🧼 Code follows clean architecture principles
-- 📁 Well-documented repository and modular design
+## 🧩 Features
+
+- Retrieval-augmented answering from your own documents
+- Modular backend with clear separation of concerns
+- Pluggable LLM and vector DB providers
+- Modern, responsive web UI (Open WebUI or Streamlit)
+- Fully containerized for easy deployment and teardown
+
+---
+
+## 🗂 Project Structure
+
+- `backend/app/` – FastAPI backend (API, ingestion, core logic)
+- `open-webui/` – Web UI (Open WebUI)
+- `docker/` – Dockerfiles and compose files
+- `README.Docker.md` – Docker & deployment guide
+
+---
+
+## 🛠️ Requirements
+
+- [Docker](https://www.docker.com/)
+- [Docker Compose](https://docs.docker.com/compose/)
+- [Ngrok](https://ngrok.com/) (optional, for remote access)
+
+---
+
+## 📝 Documentation
+
+- **Deployment & Docker:** [README.Docker.md](README.Docker.md)
+- **Web UI:** [open-webui/README.md](open-webui/README.md)
+- **Changelog:** [open-webui/CHANGELOG.md](open-webui/CHANGELOG.md)
+
+---
+
+## 🧠 Topics to Explore
+
+- FastAPI & Flask for backend APIs
+- OOP & design patterns for modular code
+- Streamlit & OpenWebUI for rapid UI prototyping
+- Docker for reproducible environments
+- Vector databases (ChromaDB, Supabase/pgvector)
+
+---
+
+## 🧪 Troubleshooting & FAQ
+
+- **CORS errors:** Ensure frontend and backend URLs are correctly set in CORS config.
+- **Service not starting:** Check logs with `docker compose logs -f`.
+- **Port conflicts:** Make sure required ports (8000, 8001, 11434, 3000) are free.
+- **Ngrok not working:** Verify your firewall and use the correct port.
+
+---
+
+## 📄 License
+
+MIT License. See [LICENSE](LICENSE).
+
+---
+
+## 🤝 Contributing
+
+Pull requests and issues are welcome! Please see [CONTRIBUTING.md](CONTRIBUTING.md) if available.
 
 ---

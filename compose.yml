@@ -59,6 +59,9 @@ services:
     environment:
       - OLLAMA_API_BASE_URL=${OLLAMA_API_BASE_URL:-http://ollama-llm:11434/api}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - VECTOR_DB=chroma
+      - CHROMA_HOST=${CHROMA_HOST:-vector-db}
+      - CHROMA_PORT=${CHROMA_PORT:-8000}
     depends_on:
       rag-api:
         condition: service_started
