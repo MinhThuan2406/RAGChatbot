@@ -11,7 +11,8 @@ rag_service = RAGService()
 class ChatRequest(BaseModel):
     """Request model for chat endpoint."""
     query: str
-    provider: str | None = None  # "ollama" or "openai"
+    provider: str | None = None  
+    file_name: str | None = None  
 
 class ChatResponse(BaseModel):
     """Response model for chat endpoint."""
@@ -28,7 +29,7 @@ async def chat_with_bot(request: ChatRequest) -> ChatResponse:
         rag_service = RAGService(provider=provider)
         if not hasattr(rag_service, "answer_query") or not callable(getattr(rag_service, "answer_query", None)):
             raise HTTPException(status_code=500, detail="RAGService does not have an 'answer_query' method.")
-        response: str = await rag_service.answer_query(request.query)
+        response: str = await rag_service.answer_query(request.query, file_name=request.file_name)
         return ChatResponse(answer=response)
     except Exception as e:
         print("Exception in chat_with_bot:", e)

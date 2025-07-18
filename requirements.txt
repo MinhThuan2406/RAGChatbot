@@ -14,3 +14,13 @@ requests
 langchain
 openai
 pdfminer.six
+python-docx
+textract
+pytesseract
+pillow
+beautifulsoup4
+python-magic
+python-pptx
+docx2txt
+pdf2image
+openpyxl

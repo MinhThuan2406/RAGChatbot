@@ -29,7 +29,25 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Install dependencies as root
+
+# Install system dependencies for document/image processing
+RUN apt-get update && \
+    apt-get install -y \
+    tesseract-ocr \
+    libtesseract-dev \
+    poppler-utils \
+    libjpeg-dev \
+    zlib1g-dev \
+    libpng-dev \
+    unrtf \
+    antiword \
+    catdoc \
+    libxml2-utils \
+    imagemagick \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies as root
+RUN python -m pip install --upgrade pip==24.0
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=bind,source=requirements.txt,target=requirements.txt \
     python -m pip install -r requirements.txt

@@ -1,10 +1,10 @@
 # RAGChatbot Developer Guide
 
-This guide is for developers who want to understand, extend, or contribute to the RAGChatbot project.
+This guide is for developers who want to set up, extend, or contribute.
 
 ---
 
-## 1. Project Structure
+## Project Structure
 
 - `backend/` — FastAPI backend, adapters, core logic, database, and services
 - `frontend/` — Web UI (if present)
@@ -14,77 +14,76 @@ This guide is for developers who want to understand, extend, or contribute to th
 
 ---
 
-## 2. Setting Up for Development
+## Setup
 
-### Prerequisites
-- Python 3.10+
-- Docker & Docker Compose
-- Node.js (for frontend development)
-
-### Backend Setup
-1. Install dependencies:
-   ```sh
-   pip install -r requirements.txt
-   ```
-2. Run backend locally:
-   ```sh
-   uvicorn backend.app.main:app --reload --port 8001
-   ```
-
-### Frontend Setup (if applicable)
-1. Navigate to the frontend directory:
-   ```sh
-   cd frontend
-   npm install
-   npm run dev
-   ```
+- Python 3.10+, Docker, Node.js (for frontend)
+- Backend:
+  ```sh
+  pip install -r requirements.txt
+  uvicorn backend.app.main:app --reload --port 8001
+  ```
+- Frontend:
+  ```sh
+  cd frontend
+  npm install
+  npm run dev
+  ```
 
 ---
 
-## 3. Running with Docker
-- Use `docker compose up --build` to start all services.
-- Edit `compose.yml` to add or modify services.
+## Docker
+
+- Start all services:
+  ```sh
+  docker compose up --build
+  ```
 
 ---
 
-## 4. API Endpoints
-- Main API: `/api/`
+## API
+
+- Main: `/api/`
 - Chat: `/api/chat`
 - Ingest: `/api/ingest/upload`
-- See `backend/app/api/` for more endpoints and details.
+- See `backend/app/api/` for more endpoints.
 
 ---
 
-## 5. Testing
-- Tests are in `backend/tests/`.
-- Run tests with:
+## Tests
+
+- Run:
   ```sh
   pytest backend/tests/
   ```
 
 ---
 
-## 6. Adding New Models or Adapters
+## Add Models or Adapters
+
 - Add new adapters in `backend/app/adapters/`.
-- Register them in the main app as needed.
+- Register them in the main app if needed.
 
 ---
 
-## 7. Environment Variables
+## Environment Variables
+
 - Configure via `.env` in the project root.
 - See `README.Docker.md` for variable descriptions.
 
 ---
 
-## 8. Useful Scripts
+## Useful Scripts
+
 - `scripts/ingest_initial_data.py` — Ingests all documents in `data/raw_docs/`.
 
 ---
 
-## 9. Contributing
+## Contributing
+
 - See `open-webui/docs/CONTRIBUTING.md` for contribution guidelines.
 
 ---
 
-## 10. Troubleshooting
+## Troubleshooting
+
 - See `TROUBLESHOOTING.md` for common issues and solutions.

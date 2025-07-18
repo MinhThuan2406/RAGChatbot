@@ -1,19 +1,23 @@
+
 # RAGChatbot Docker & Deployment Guide
 
 ---
 
 ## 🚀 Quick Start
 
-1. **Build and run all services:**
-   ```sh
-   docker compose up --build
-   ```
+See [USER_GUIDE.md](USER_GUIDE.md) for how to use the chatbot.
+See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for development and API details.
 
-2. **Service URLs:**
-   - FastAPI backend (rag-api): [http://localhost:8001](http://localhost:8001)
-   - ChromaDB vector database: [http://localhost:8000](http://localhost:8000)
-   - Ollama LLM API: [http://localhost:11434](http://localhost:11434)
-   - Chatbot UI: [http://localhost:3000](http://localhost:3000)
+To start all services:
+```sh
+docker compose up --build
+```
+
+Service URLs:
+- Backend API: [http://localhost:8001](http://localhost:8001)
+- ChromaDB: [http://localhost:8000](http://localhost:8000)
+- Ollama: [http://localhost:11434](http://localhost:11434)
+- Web UI: [http://localhost:3000](http://localhost:3000)
 
 ---
 

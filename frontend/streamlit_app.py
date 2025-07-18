@@ -18,11 +18,15 @@
 # if "history" not in st.session_state:
 #     st.session_state["history"] = []
 
+
+# file_name = st.text_input("(Optional) Only use context from this file:")
 # if st.button("Ask"):
 #     if not query.strip():
 #         st.warning("Please enter a question.")
 #     else:
 #         payload = {"query": query, "provider": provider}
+#         if file_name.strip():
+#             payload["file_name"] = file_name.strip()
 #         try:
 #             response = requests.post("http://localhost:8001/api/chat/", json=payload, timeout=60)
 #             response.raise_for_status()

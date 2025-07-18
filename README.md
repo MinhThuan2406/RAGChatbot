@@ -21,39 +21,13 @@ This project is under active development. Contributions and feedback are welcome
 
 ---
 
+
 ## 🚀 Quick Start
 
-See [README.Docker.md](README.Docker.md) for full deployment instructions.
+See [USER_GUIDE.md](USER_GUIDE.md) for end-user instructions.
+See [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md) for developer setup.
 
-1. **Clone the repository:**
-   ```sh
-   git clone https://github.com/yourusername/RAGChatbot.git
-   cd RAGChatbot
-   ```
-
-2. **Build and run all services:**
-   ```sh
-   docker compose up --build
-   ```
-
-3. **Access the services:**
-   - Backend API: [http://localhost:8001](http://localhost:8001)
-   - ChromaDB: [http://localhost:8000](http://localhost:8000)
-   - Ollama: [http://localhost:11434](http://localhost:11434)
-   - Web UI: [http://localhost:3000](http://localhost:3000)
-
-4. **Expose via Ngrok (optional):**
-   ```sh
-   ngrok http --region=ap 8001
-   ```
-
-   > **Tip:** To always use the Asia Pacific region (best for Vietnam), set the environment variable in your `.env` file:
-   >
-   > ```env
-   > NGROK_REGION=ap
-   > ```
-   >
-   > Or, use the `--region=ap` flag every time you run ngrok. This ensures lower latency for users in Asia.
+---
 
 ---
 
@@ -84,8 +58,12 @@ See [README.Docker.md](README.Docker.md) for full deployment instructions.
 
 ---
 
+
 ## 📝 Documentation
 
+- **User Guide:** [USER_GUIDE.md](USER_GUIDE.md)
+- **Developer Guide:** [DEVELOPER_GUIDE.md](DEVELOPER_GUIDE.md)
+- **Troubleshooting:** [TROUBLESHOOTING.md](TROUBLESHOOTING.md)
 - **Deployment & Docker:** [README.Docker.md](README.Docker.md)
 - **Web UI:** [open-webui/README.md](open-webui/README.md)
 - **Changelog:** [open-webui/CHANGELOG.md](open-webui/CHANGELOG.md)

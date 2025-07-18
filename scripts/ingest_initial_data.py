@@ -9,9 +9,19 @@ DATA_DIR = "./data/raw_docs"
 async def ingest_all_documents():
     success, fail = 0, 0
     print(f"Starting ingestion of documents from {DATA_DIR}...")
+    content_types = {
+        ".pdf": "application/pdf",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".doc": "application/msword",
+        ".jpg": "image/jpeg",
+        ".jpeg": "image/jpeg",
+        ".png": "image/png",
+        ".txt": "text/plain",
+    }
     for filename in os.listdir(DATA_DIR):
-        if not filename.lower().endswith(".pdf"):
-            print(f"Skipping non-PDF file: {filename}")
+        ext = os.path.splitext(filename)[1].lower()
+        if ext not in content_types:
+            print(f"Skipping unsupported file: {filename}")
             continue
         file_path = os.path.join(DATA_DIR, filename)
         if os.path.isfile(file_path):
@@ -19,7 +29,7 @@ async def ingest_all_documents():
             try:
                 async with httpx.AsyncClient() as client:
                     with open(file_path, "rb") as f:
-                        files = {"file": (filename, f, "application/pdf")}
+                        files = {"file": (filename, f, content_types[ext])}
                         response = await client.post(INGEST_ENDPOINT, files=files, timeout=300)
                         response.raise_for_status()
                         print(f"Successfully ingested {filename}: {response.json()}")
