@@ -12,6 +12,8 @@ from ..adapters.openai_adapter import OpenAIAdapter
 import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import threading        
+from chromadb.utils import embedding_functions
+from ..core.config import settings
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -103,22 +105,31 @@ class AsyncEmbeddingFunction:
         self._name = name
 
     def __call__(self, texts: list[str]) -> list[list[float]]:
+        # ChromaDB expects a synchronous callable. This wraps async embedding calls.
+        import asyncio
         async def get_embeddings():
+            # Try embed_documents (batch) if available, else fallback to create_embedding per text
             if hasattr(self._client, "embed_documents"):
                 return await self._client.embed_documents(texts)
             else:
                 return [await self._client.create_embedding(t) for t in texts]
-        import asyncio
+
         try:
             loop = asyncio.get_event_loop()
         except RuntimeError:
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+
+        # If already in an event loop (e.g. FastAPI), use a thread to avoid 'str not callable' errors
         if loop.is_running():
-            return asyncio.run(get_embeddings())
+            from concurrent.futures import ThreadPoolExecutor
+            with ThreadPoolExecutor() as executor:
+                future = executor.submit(lambda: asyncio.run(get_embeddings()))
+                return future.result()
         else:
             return loop.run_until_complete(get_embeddings())
 
+    # Only a method, not a property, for ChromaDB compatibility
     def name(self):
         return self._name
 
@@ -132,7 +143,6 @@ class IngestionService:
         self.chunk_overlap = chunk_overlap
         self.provider = (provider or os.getenv("LLM_PROVIDER", "openai")).lower()
         
-        # Force OpenAI for embeddings if Ollama is specified
         if self.provider == "ollama":
             logger.warning("Ollama doesn't support embeddings. Switching to OpenAI for embeddings.")
             embedding_provider = "openai"
@@ -141,9 +151,10 @@ class IngestionService:
             
         self.embedding_client = LLMFactory.get_embedding_client(embedding_provider)
         
-        # Create thread-safe embedding function
-        self.embedding_function = AsyncEmbeddingFunction(self.embedding_client, embedding_provider)
-        
+        openai_api_key = os.getenv("OPENAI_API_KEY")
+        if not openai_api_key:
+            raise RuntimeError("OPENAI_API_KEY is not set in the environment or .env file.")
+        self.embedding_function = embedding_functions.OpenAIEmbeddingFunction(api_key=openai_api_key)
         self.vector_db_client = ChromaDBClient(embedding_function=self.embedding_function)
         self.document_processor = DocumentProcessor()
         self.text_splitter = RecursiveCharacterTextSplitter(

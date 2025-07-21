@@ -1,7 +1,7 @@
 import chromadb
 import traceback
-from ..core.config import settings
 from typing import List, Optional, Any, Dict
+from ..core.config import settings
 
 class ChromaDBClient:
     """
@@ -13,12 +13,16 @@ class ChromaDBClient:
         Args:
             host (Optional[str]): Hostname for ChromaDB. Defaults to settings.CHROMA_HOST.
             port (Optional[int]): Port for ChromaDB. Defaults to settings.CHROMA_PORT.
+            embedding_function: Embedding function object for generating embeddings.
         """
-        self._host: str = host or settings.CHROMA_HOST
-        self._port: int = port or settings.CHROMA_PORT
-        self._client: Optional[Any] = None
-        self._collection: Optional[Any] = None
+        self._host = host or settings.CHROMA_HOST
+        self._port = port or settings.CHROMA_PORT
+        self._client = None
+        self._collection = None
+        if isinstance(embedding_function, str):
+            raise ValueError("embedding_function must be an instance of EmbeddingFunction, not a string")
         self._embedding_function = embedding_function
+        print(f"[DEBUG] ChromaDBClient initialized with embedding_function type: {type(self._embedding_function)}")
 
     @property
     def client(self) -> Any:
@@ -32,12 +36,12 @@ class ChromaDBClient:
         """Lazily initializes and returns the ChromaDB collection for RAG documents."""
         if self._collection is None:
             if self._embedding_function is not None and hasattr(self._embedding_function, "name"):
-                print(f"[DEBUG] Embedding function name: {self._embedding_function.name}")
+                print(f"[DEBUG] Embedding function name: {self._embedding_function.name()}")
             else:
                 print(f"[DEBUG] Embedding function is None or has no 'name' attribute.")
             self._collection = self.client.get_or_create_collection(
                 name="rag_documents",
-                embedding_function=self._embedding_function  
+                embedding_function=self._embedding_function
             )
         return self._collection
 
