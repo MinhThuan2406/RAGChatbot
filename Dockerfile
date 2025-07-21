@@ -7,10 +7,14 @@
 # Want to help us make this template better? Share your feedback here: https://forms.gle/ybq9Krt8jtBL3iCk7
 
 ARG PYTHON_VERSION=3.13.2
+# ARG PYTHON_VERSION=3.12
+# ARG PYTHON_VERSION=3.11.4
 FROM python:${PYTHON_VERSION}-slim as base
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
+
+ENV PYTHONPATH=/app/backend
 
 # Keeps Python from buffering stdout and stderr to avoid situations where
 # the application crashes without emitting any logs due to buffering.
@@ -29,7 +33,6 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-
 # Install system dependencies for document/image processing
 RUN apt-get update && \
     apt-get install -y \
@@ -46,11 +49,16 @@ RUN apt-get update && \
     imagemagick \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies as root
+# # Install Python dependencies as root
+# RUN python -m pip install --upgrade pip==24.0
+# RUN --mount=type=cache,target=/root/.cache/pip \
+#     --mount=type=bind,source=requirements.txt,target=requirements.txt \
+#     python -m pip install -r requirements.txt
 RUN python -m pip install --upgrade pip==24.0
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=type=bind,source=requirements.txt,target=requirements.txt \
-    python -m pip install -r requirements.txt
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+# For debugging
+RUN pip install --force-reinstall --upgrade six
 
 # Copy source code as root
 COPY . .
@@ -59,6 +67,9 @@ COPY . .
 RUN mkdir -p /app/.cache /app/data /app/.local && \
     chown -R appuser:appuser /app/.cache /app/data /app/.local
 
+ENV USER_AGENT="RAGChatbot/1.0"
+ENV CHROMA_TELEMETRY_ENABLED="false"
+
 # Switch to non-root user
 USER appuser
 
@@ -66,4 +77,7 @@ USER appuser
 EXPOSE 8001
 
 # Run the application with Uvicorn (FastAPI production server)
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]
+# For debugging
+# CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]

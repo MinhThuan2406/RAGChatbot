@@ -70,3 +70,5 @@ data/raw_docs/
 
 # Ignore secrets
 .env
+FrequentUsedCommands.txt
+DockerCommands.txt

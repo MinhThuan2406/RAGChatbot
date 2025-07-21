@@ -31,9 +31,13 @@ async def ingest_all_documents():
                     with open(file_path, "rb") as f:
                         files = {"file": (filename, f, content_types[ext])}
                         response = await client.post(INGEST_ENDPOINT, files=files, timeout=300)
-                        response.raise_for_status()
-                        print(f"Successfully ingested {filename}: {response.json()}")
-                        success += 1
+                        try:
+                            response.raise_for_status()
+                            print(f"Successfully ingested {filename}: {response.json()}")
+                            success += 1
+                        except httpx.HTTPStatusError as http_err:
+                            print(f"Failed to ingest {filename}: {http_err}\nResponse body: {response.text}")
+                            fail += 1
             except Exception as e:
                 print(f"Failed to ingest {filename}: {e}")
                 fail += 1

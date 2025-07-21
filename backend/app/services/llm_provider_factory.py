@@ -15,7 +15,7 @@ class LLMFactory:
 
     @staticmethod
     def get_embedding_client(provider: Optional[str] = None) -> AbstractEmbeddingClient:
-        provider_str = (provider or os.getenv("LLM_PROVIDER", "ollama")).lower()
-        if provider_str == "openai":
-            return OpenAIAdapter(api_key=os.getenv("OPENAI_API_KEY", ""))
-        return OllamaAdapter(host=settings.OLLAMA_HOST, port=settings.OLLAMA_PORT)
+        """
+        Always return an OpenAIAdapter for embeddings, regardless of provider.
+        """
+        return OpenAIAdapter(api_key=os.getenv("OPENAI_API_KEY", ""))

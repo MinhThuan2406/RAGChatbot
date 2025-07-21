@@ -1,0 +1,6 @@
+Workstation Type: Intel
+Operating System: Windows 11
+CPU Type: 13th Gen Intel(R) Core(TM) i7-13620H
+GPU Type: Intel(R) UHD Graphics; NVIDIA GeForce RTX 4060 Laptop GPU
+RAM: 32 GB
+Storage: 1857 GB

@@ -1,140 +1,263 @@
 import os
-from typing import Optional, Dict, Any, List
-from ..db.chroma_client import ChromaDBClient
-from .llm_provider_factory import LLMFactory
-from pdfminer.high_level import extract_text
+import logging
+from typing import Dict, Any, List
+from pathlib import Path
+from pdfminer.high_level import extract_text as extract_pdf_text
+import docx
+import pytesseract
+from PIL import Image
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from ..db.chroma_client import ChromaDBClient
+from ..adapters.openai_adapter import OpenAIAdapter
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+import threading        
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+class DocumentProcessor:
+    """Handles extraction of text from various document types"""
+    @staticmethod
+    def get_document_type(file_path: str) -> str:
+        extension = Path(file_path).suffix.lower()
+        if extension == '.pdf':
+            return 'pdf'
+        elif extension == '.docx':
+            return 'docx'
+        elif extension == '.doc':
+            return 'doc'
+        elif extension == '.txt':
+            return 'txt'
+        elif extension in ['.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif']:
+            return 'image'
+        else:
+            raise ValueError(f"Unsupported file type: {extension}")
+
+    @staticmethod
+    def extract_text_from_pdf(file_path: str) -> str:
+        try:
+            text = extract_pdf_text(file_path)
+            return text or ""
+        except Exception as e:
+            logger.error(f"Failed to extract text from PDF {file_path}: {e}")
+            return ""
+
+    @staticmethod
+    def extract_text_from_docx(file_path: str) -> str:
+        try:
+            doc = docx.Document(file_path)
+            return "\n".join([p.text for p in doc.paragraphs])
+        except Exception as e:
+            logger.error(f"Failed to extract text from DOCX {file_path}: {e}")
+            return ""
+
+    @staticmethod
+    def extract_text_from_doc(file_path: str) -> str:
+        logger.error("DOC file support not implemented. Please convert to DOCX.")
+        return ""
+
+    @staticmethod
+    def extract_text_from_txt(file_path: str) -> str:
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Failed to extract text from TXT {file_path}: {e}")
+            return ""
+
+    @staticmethod
+    def extract_text_from_image(file_path: str) -> str:
+        try:
+            image = Image.open(file_path)
+            return pytesseract.image_to_string(image)
+        except Exception as e:
+            logger.error(f"Failed to extract text from image {file_path}: {e}")
+            return ""
+
+    def extract_text(self, file_path: str) -> str:
+        doc_type = self.get_document_type(file_path)
+        if doc_type == 'pdf':
+            return self.extract_text_from_pdf(file_path)
+        elif doc_type == 'docx':
+            return self.extract_text_from_docx(file_path)
+        elif doc_type == 'doc':
+            return self.extract_text_from_doc(file_path)
+        elif doc_type == 'txt':
+            return self.extract_text_from_txt(file_path)
+        elif doc_type == 'image':
+            return self.extract_text_from_image(file_path)
+        else:
+            return ""
+
+from typing import List
+import asyncio
+
+class AsyncEmbeddingFunction:
+    """
+    Wrapper for async embedding client compatible with ChromaDB.
+    Pass an embedding client object (e.g., OpenAIAdapter) that implements async create_embedding(text: str) -> list[float].
+    """
+    def __init__(self, client, name: str = "openai"):
+        self._client = client
+        self._name = name
+
+    def __call__(self, texts: list[str]) -> list[list[float]]:
+        async def get_embeddings():
+            if hasattr(self._client, "embed_documents"):
+                return await self._client.embed_documents(texts)
+            else:
+                return [await self._client.create_embedding(t) for t in texts]
+        import asyncio
+        try:
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        if loop.is_running():
+            return asyncio.run(get_embeddings())
+        else:
+            return loop.run_until_complete(get_embeddings())
+
+    def name(self):
+        return self._name
 
 class IngestionService:
     """
-    Service for ingesting documents into the vector database (ChromaDB).
-    Handles document loading, splitting, embedding, and storage.
+    Service for ingesting documents into the vector database.
     """
-    def __init__(self, embedding_provider: str = "ollima", chroma_host: Optional[str] = None, chroma_port: Optional[int] = None) -> None:
-        """
-        Initialize the ingestion service.
-        Args:
-            embedding_provider (str): The embedding provider to use (default: "ollima").
-            chroma_host (Optional[str]): Host for ChromaDB. Defaults to config.
-            chroma_port (Optional[int]): Port for ChromaDB. Defaults to config.
-        """
-        self.embedding_client = LLMFactory.get_embedding_client()
-        self.vector_db_client = ChromaDBClient(host=chroma_host, port=chroma_port)
+    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 200, provider: str = ""):
+        from .llm_provider_factory import LLMFactory
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.provider = (provider or os.getenv("LLM_PROVIDER", "openai")).lower()
+        
+        # Force OpenAI for embeddings if Ollama is specified
+        if self.provider == "ollama":
+            logger.warning("Ollama doesn't support embeddings. Switching to OpenAI for embeddings.")
+            embedding_provider = "openai"
+        else:
+            embedding_provider = self.provider
+            
+        self.embedding_client = LLMFactory.get_embedding_client(embedding_provider)
+        
+        # Create thread-safe embedding function
+        self.embedding_function = AsyncEmbeddingFunction(self.embedding_client, embedding_provider)
+        
+        self.vector_db_client = ChromaDBClient(embedding_function=self.embedding_function)
+        self.document_processor = DocumentProcessor()
+        self.text_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap
+        )
+        logger.info(f"Initialized IngestionService with {embedding_provider} embeddings.")
+
+    def _is_supported_file(self, file_path: str) -> bool:
+        try:
+            self.document_processor.get_document_type(file_path)
+            return True
+        except Exception:
+            return False
 
     async def ingest_document(self, file_path: str, file_name: str) -> Dict[str, Any]:
-        """
-        Ingest a document (PDF, DOC, DOCX, image) into the vector database.
-        Args:
-            file_path (str): Path to the file to ingest.
-            file_name (str): Name of the file.
-        Returns:
-            dict: Status and message about the ingestion.
-        """
-        import mimetypes
-        import io
-        ext = os.path.splitext(file_name)[1].lower()
-        full_text = None
-
-        if ext == ".pdf":
-            try:
-                full_text = extract_text(file_path)
-            except Exception as e:
-                return {"status": "error", "message": f"Failed to load PDF: {e}"}
-
-        elif ext in [".doc", ".docx"]:
-            try:
-                if ext == ".docx":
-                    import docx
-                    doc = docx.Document(file_path)
-                    full_text = "\n".join([para.text for para in doc.paragraphs])
-                    extractor_used = "python-docx"
-                else:
-                    textract_exc = None
-                    antiword_exc = None
-                    catdoc_exc = None
-                    extractor_used = None
-                    # Try textract
-                    try:
-                        import textract
-                        full_text = textract.process(file_path, timeout=30).decode("utf-8", errors="ignore")
-                        extractor_used = "textract"
-                    except Exception as e1:
-                        textract_exc = e1
-                    # Try antiword if textract failed
-                    if (not full_text or not full_text.strip()) and extractor_used is None:
-                        try:
-                            import subprocess
-                            result = subprocess.run(["antiword", file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-                            if result.returncode == 0:
-                                full_text = result.stdout.decode("utf-8", errors="ignore")
-                                extractor_used = "antiword"
-                            else:
-                                antiword_exc = result.stderr.decode("utf-8", errors="ignore")
-                        except Exception as e2:
-                            antiword_exc = e2
-                    # Try catdoc if antiword failed
-                    if (not full_text or not full_text.strip()) and extractor_used is None:
-                        try:
-                            import subprocess
-                            result2 = subprocess.run(["catdoc", file_path], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
-                            if result2.returncode == 0:
-                                full_text = result2.stdout.decode("utf-8", errors="ignore")
-                                extractor_used = "catdoc"
-                            else:
-                                catdoc_exc = result2.stderr.decode("utf-8", errors="ignore")
-                        except Exception as e3:
-                            catdoc_exc = e3
-                    if not full_text or not full_text.strip():
-                        return {"status": "error", "message": f"Failed to load .doc file. textract: {textract_exc}, antiword: {antiword_exc}, catdoc: {catdoc_exc}"}
-            except Exception as e:
-                return {"status": "error", "message": f"Failed to load DOC/DOCX: {e}"}
-
-        elif ext in [".jpg", ".jpeg", ".png"]:
-            try:
-                import pytesseract
-                from PIL import Image
-                image = Image.open(file_path)
-                full_text = pytesseract.image_to_string(image)
-            except Exception as e:
-                return {"status": "error", "message": f"Failed to extract text from image: {e}"}
-        else:
-            return {"status": "error", "message": f"Unsupported file type: {ext}"}
-
-        if not full_text or not full_text.strip():
-            return {"status": "error", "message": "No text extracted from document."}
-
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks: list[str] = splitter.split_text(full_text)
-        metadatas: list[dict[str, Any]] = [{"source": file_name, "chunk": i+1} for i, _ in enumerate(chunks)]
-        ids: list[str] = [f"{file_name}_chunk_{i}" for i, _ in enumerate(chunks)]
-        self.vector_db_client.add_documents(documents=chunks, metadatas=metadatas, ids=ids)
-        return {"status": "success", "message": f"Document {file_name} ingested with {len(chunks)} chunks."}
-
-    async def ingest_link(self, url: str) -> Dict[str, Any]:
-        """
-        Ingest a document from a URL (web page) into the vector database.
-        """
+        """Ingest a single document"""
+        if not os.path.exists(file_path):
+            return {"status": "error", "message": f"File not found: {file_path}", "file_name": file_name}
+        
+        if not self._is_supported_file(file_path):
+            return {"status": "error", "message": f"Unsupported file type: {Path(file_path).suffix}", "file_name": file_name}
+        
+        logger.info(f"Starting ingestion of {file_name}")
+        
         try:
-            import requests
-            from bs4 import BeautifulSoup
-            resp = requests.get(url, timeout=10)
-            resp.raise_for_status()
-            soup = BeautifulSoup(resp.text, "html.parser")
-            for tag in soup(["script", "style"]):
-                tag.decompose()
-            full_text = "\n".join([t for t in soup.stripped_strings])
+            # Extract text
+            text = self.document_processor.extract_text(file_path)
+            if not text.strip():
+                return {"status": "warning", "message": f"No text content extracted from {file_name}", "file_name": file_name}
+            
+            # Split into chunks
+            chunks = self.text_splitter.split_text(text)
+            if not chunks:
+                return {"status": "warning", "message": f"No text chunks created from {file_name}", "file_name": file_name}
+            
+            # Prepare metadata
+            doc_type = self.document_processor.get_document_type(file_path)
+            metadatas = [
+                {
+                    "source": file_name, 
+                    "chunk": i+1, 
+                    "total_chunks": len(chunks), 
+                    "document_type": doc_type, 
+                    "file_path": file_path, 
+                    "chunk_size": len(chunk)
+                } 
+                for i, chunk in enumerate(chunks)
+            ]
+            ids = [f"{file_name}_chunk_{i}" for i in range(len(chunks))]
+            
+            # Add to vector database
+            self.vector_db_client.add_documents(documents=chunks, metadatas=metadatas, ids=ids)
+            
+            logger.info(f"Successfully ingested {file_name} with {len(chunks)} chunks")
+            return {
+                "status": "success", 
+                "message": f"Document {file_name} ingested successfully", 
+                "file_name": file_name, 
+                "chunks_created": len(chunks), 
+                "document_type": doc_type, 
+                "embedding_provider": self.provider
+            }
+            
         except Exception as e:
-            return {"status": "error", "message": f"Failed to fetch or parse link: {e}"}
+            logger.error(f"Error ingesting {file_name}: {e}")
+            return {"status": "error", "message": f"Failed to ingest document: {str(e)}", "file_name": file_name}
 
-        if not full_text or not full_text.strip():
-            return {"status": "error", "message": "No text extracted from link."}
-
-        splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-        chunks: list[str] = splitter.split_text(full_text)
-        metadatas: list[dict[str, Any]] = [{"source": url, "chunk": i+1} for i, _ in enumerate(chunks)]
-        ids: list[str] = [f"{url}_chunk_{i}" for i, _ in enumerate(chunks)]
-        self.vector_db_client.add_documents(documents=chunks, metadatas=metadatas, ids=ids)
-        return {"status": "success", "message": f"Link {url} ingested with {len(chunks)} chunks."}
-
-if __name__ == "__main__" or "PYTEST_CURRENT_TEST" not in os.environ:
-    ingestion_service: IngestionService = IngestionService()
+    async def ingest_directory(self, directory_path: str) -> Dict[str, Any]:
+        """Ingest all supported documents in a directory"""
+        if not os.path.exists(directory_path):
+            return {"status": "error", "message": f"Directory not found: {directory_path}"}
+        
+        results = {
+            "total_files": 0, 
+            "successful": 0, 
+            "failed": 0, 
+            "warnings": 0, 
+            "skipped": 0, 
+            "details": []
+        }
+        
+        logger.info(f"Starting directory ingestion from {directory_path}")
+        
+        for filename in os.listdir(directory_path):
+            file_path = os.path.join(directory_path, filename)
+            
+            if not os.path.isfile(file_path):
+                continue
+                
+            results["total_files"] += 1
+            
+            if not self._is_supported_file(file_path):
+                logger.info(f"Skipping unsupported file: {filename}")
+                results["skipped"] += 1
+                results["details"].append({
+                    "file_name": filename, 
+                    "status": "skipped", 
+                    "message": f"Unsupported file type: {Path(file_path).suffix}"
+                })
+                continue
+            
+            result = await self.ingest_document(file_path, filename)
+            results["details"].append(result)
+            
+            if result["status"] == "success":
+                results["successful"] += 1
+            elif result["status"] == "warning":
+                results["warnings"] += 1
+            else:
+                results["failed"] += 1
+        
+        logger.info(f"Directory ingestion completed. Total: {results['total_files']}, "
+                   f"Success: {results['successful']}, Failed: {results['failed']}, "
+                   f"Warnings: {results['warnings']}, Skipped: {results['skipped']}")
+        
+        return results
