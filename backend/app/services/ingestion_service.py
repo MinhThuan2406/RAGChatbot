@@ -56,8 +56,17 @@ class DocumentProcessor:
 
     @staticmethod
     def extract_text_from_doc(file_path: str) -> str:
-        logger.error("DOC file support not implemented. Please convert to DOCX.")
-        return ""
+        try:
+            import textract
+        except ImportError:
+            logger.error("textract is required for DOC file support. Please install it with 'pip install textract' and ensure antiword is available on your system.")
+            return ""
+        try:
+            text = textract.process(file_path)
+            return text.decode("utf-8") if text else ""
+        except Exception as e:
+            logger.error(f"Failed to extract text from DOC {file_path}: {e}")
+            return ""
 
     @staticmethod
     def extract_text_from_txt(file_path: str) -> str:
