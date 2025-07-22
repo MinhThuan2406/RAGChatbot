@@ -58,7 +58,8 @@ RUN apt-get update && \
 RUN python -m pip install --upgrade pip==24.0
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
-# For debugging
+
+# For debugging & fixing the error: "No module named 'six.moves'"
 RUN pip install --force-reinstall --upgrade six
 
 # Copy source code as root
