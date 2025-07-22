@@ -60,6 +60,7 @@ Thumbs.db
 # Docker
 *.log
 data/raw_docs/
+data/store_docs/
 
 # Jupyter
 .ipynb_checkpoints/
@@ -72,3 +73,4 @@ data/raw_docs/
 .env
 FrequentUsedCommands.txt
 DockerCommands.txt
+backend/tests/Questions.txt
