@@ -1,9 +1,9 @@
-
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from contextlib import asynccontextmanager
 from .core.config import settings
+from starlette.middleware.cors import ALL_METHODS
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     from .api import chat, ingest
@@ -28,18 +28,28 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+def get_cors_origins():
+    env_origins = os.getenv("CORS_ALLOW_ORIGIN", "http://localhost:3000")
+    return [o.strip() for o in env_origins.split(",") if o.strip()]
+
+cors_origins = get_cors_origins()
+
+class DynamicCORSMiddleware(CORSMiddleware):
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            headers = dict(scope.get("headers", []))
+            origin = headers.get(b"origin", b"").decode()
+            if origin and origin.endswith(".ngrok-free.app") and origin not in cors_origins:
+                cors_origins.append(origin)
+        await super().__call__(scope, receive, send)
+
 app.add_middleware(
-    CORSMiddleware,
-    # allow_origins=["*"], # Avoid using "*" in production for security reasons
-    allow_origins=[
-        "http://localhost:3000",  # local dev
-        "https://your-production-domain.com"  # production
-    ],
+    DynamicCORSMiddleware,
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
-
 
 if "PYTEST_CURRENT_TEST" not in os.environ:
     app.include_router(chat.router, prefix="/api/chat", tags=["Chat"])
@@ -49,5 +59,3 @@ if "PYTEST_CURRENT_TEST" not in os.environ:
 @app.get("/")
 async def read_root():
     return {"message": "Welcome to the RAG Chatbot API!"}
-
-# Example of how to use settings

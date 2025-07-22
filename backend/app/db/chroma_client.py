@@ -45,24 +45,50 @@ class ChromaDBClient:
             )
         return self._collection
 
-    def add_documents(self, documents: List[str], metadatas: List[Dict[str, Any]], ids: List[str]) -> None:
+    def add_documents(self, documents: List[str], metadatas: List[Dict[str, Any]], ids: List[str]) -> bool:
         """
-        Add documents to the ChromaDB collection.
-        Args:
-            documents (List[str]): List of document texts.
-            metadatas (List[Dict[str, Any]]): List of metadata dicts for each document.
-            ids (List[str]): List of unique document IDs.
+        Add documents to the ChromaDB collection and verify insertion.
+        Returns True if documents are added and verified, False otherwise.
         """
         print(f"[DEBUG] ChromaDBClient.add_documents called with {len(documents)} documents.")
         print(f"[DEBUG] First document: {documents[0][:200] if documents else 'N/A'}")
         print(f"[DEBUG] First metadata: {metadatas[0] if metadatas else 'N/A'}")
         print(f"[DEBUG] First id: {ids[0] if ids else 'N/A'}")
+        # Validate input
+        if not documents or not ids or len(documents) != len(ids):
+            print("[ERROR] Documents or IDs are missing or length mismatch.")
+            return False
+        # Check for duplicate IDs before adding
+        try:
+            existing = self.collection.get(ids=ids)
+            existing_ids = set(existing.get("ids", []))
+            if existing_ids:
+                print(f"[WARNING] Some IDs already exist in ChromaDB: {existing_ids}")
+                # Optionally, skip or update existing documents here
+        except Exception as e:
+            print(f"[WARNING] Could not check for existing IDs: {e}")
+        # Add documents
         try:
             self.collection.add(documents=documents, metadatas=metadatas, ids=ids)
         except Exception as e:
             print(f"[ERROR] Exception in add_documents: {e}")
+            import traceback
             traceback.print_exc()
-            raise
+            return False
+        # Post-insert verification: check if the IDs exist in the collection
+        try:
+            result = self.collection.get(ids=ids)
+            found_ids = set(result.get("ids", []))
+            if not all(doc_id in found_ids for doc_id in ids):
+                print(f"[ERROR] Not all documents were inserted into ChromaDB. Missing: {set(ids) - found_ids}")
+                return False
+        except Exception as e:
+            print(f"[ERROR] Exception during post-insert verification: {e}")
+            import traceback
+            traceback.print_exc()
+            return False
+        print(f"[DEBUG] Successfully added and verified {len(ids)} documents in ChromaDB.")
+        return True
 
     def query_documents(self, query_texts: List[str], n_results: int = 5, **kwargs) -> Any:
         """
@@ -74,8 +100,13 @@ class ChromaDBClient:
             Any: Query result from ChromaDB.
         """
         print(f"[DEBUG] ChromaDBClient.query_documents called with query_texts: {query_texts}, n_results: {n_results}, kwargs: {kwargs}")
-        result = self.collection.query(query_texts=query_texts, n_results=n_results, **kwargs)
-        print(f"[DEBUG] ChromaDBClient.query_documents result: {result}")
-        return result
+        try:
+            result = self.collection.query(query_texts=query_texts, n_results=n_results, **kwargs)
+            print(f"[DEBUG] ChromaDBClient.query_documents result: {result}")
+            return result
+        except Exception as e:
+            print(f"[ERROR] Exception in query_documents: {e}")
+            traceback.print_exc()
+            return None
 
 __all__ = ["ChromaDBClient"]

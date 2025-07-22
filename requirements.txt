@@ -51,4 +51,6 @@ beautifulsoup4        # HTML parsing
 # Analytics & monitoring
 posthog
 rich>=13.0.0
+pyngrok
+pip<24.1              # For textract compatibility
 

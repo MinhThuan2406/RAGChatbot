@@ -47,6 +47,7 @@ RUN apt-get update && \
     catdoc \
     libxml2-utils \
     imagemagick \
+    libreoffice \
     && rm -rf /var/lib/apt/lists/*
 
 # # Install Python dependencies as root
@@ -69,6 +70,15 @@ RUN mkdir -p /app/.cache /app/data /app/.local && \
 
 ENV USER_AGENT="RAGChatbot/1.0"
 ENV CHROMA_TELEMETRY_ENABLED="false"
+ENV DISPLAY=
+ENV LIBREOFFICE_HEADLESS=true
+
+# Set HOME for appuser and pre-initialize LibreOffice user profile
+ENV HOME=/app
+RUN mkdir -p /app/.config && chown -R appuser:appuser /app/.config
+USER appuser
+RUN touch /tmp/dummy.doc && libreoffice --headless --convert-to txt /tmp/dummy.doc --outdir /tmp || true
+USER root
 
 # Switch to non-root user
 USER appuser
@@ -78,6 +88,6 @@ EXPOSE 8001
 
 # Run the application with Uvicorn (FastAPI production server)
 # CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001"]
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]
+# CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]
 # For debugging
-# CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]
+CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8001", "--log-level", "debug"]

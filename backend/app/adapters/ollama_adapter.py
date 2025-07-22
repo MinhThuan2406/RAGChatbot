@@ -12,7 +12,8 @@ class OllamaAdapter(AbstractLLMClient, AbstractEmbeddingClient):
             host (str): Hostname or IP address of the Ollama server.
             port (int): Port number of the Ollama server.
         """
-        self.base_url: str = f"http://{host}:{port}/api"
+        # Ollama API does not use a /api prefix; endpoints are at root (e.g., /chat)
+        self.base_url: str = f"http://{host}:{port}"
         self.client: httpx.AsyncClient = httpx.AsyncClient()
         self.model: str = "llama3.2:latest" 
 
@@ -21,6 +22,7 @@ class OllamaAdapter(AbstractLLMClient, AbstractEmbeddingClient):
         Generate a response from the LLM given a prompt and optional context.
         """
         full_prompt: str = f"Context: {context}\n\nQuestion: {prompt}" if context else prompt
+        # Ollama's chat endpoint is at /chat, not /api/chat
         response = await self.client.post(
             f"{self.base_url}/chat",  
             json={
@@ -32,7 +34,14 @@ class OllamaAdapter(AbstractLLMClient, AbstractEmbeddingClient):
             }
         )
         response.raise_for_status()
-        return response.json().get("message", {}).get("content", "")
+        # Ollama's response format may differ; adjust as needed
+        # Try to get the response from 'message' or 'response' key
+        data = response.json()
+        if "message" in data and isinstance(data["message"], dict):
+            return data["message"].get("content", "")
+        elif "response" in data:
+            return data["response"]
+        return ""
 
     # async def create_embedding(self, text: str) -> list[float]:
     #     """

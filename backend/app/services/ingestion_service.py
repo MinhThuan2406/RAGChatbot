@@ -56,16 +56,39 @@ class DocumentProcessor:
 
     @staticmethod
     def extract_text_from_doc(file_path: str) -> str:
+        # Try textract first
         try:
             import textract
-        except ImportError:
-            logger.error("textract is required for DOC file support. Please install it with 'pip install textract' and ensure antiword is available on your system.")
-            return ""
-        try:
             text = textract.process(file_path)
-            return text.decode("utf-8") if text else ""
+            if text:
+                return text.decode("utf-8")
         except Exception as e:
-            logger.error(f"Failed to extract text from DOC {file_path}: {e}")
+            logger.warning(f"textract failed for DOC {file_path}: {e}")
+
+        # Fallback: try catdoc
+        try:
+            import subprocess
+            result = subprocess.run(
+                ["catdoc", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            return result.stdout.decode("utf-8")
+        except Exception as e:
+            logger.warning(f"catdoc failed for DOC {file_path}: {e}")
+
+        # Fallback: try unrtf
+        try:
+            result = subprocess.run(
+                ["unrtf", "--text", file_path],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=True,
+            )
+            return result.stdout.decode("utf-8")
+        except Exception as e:
+            logger.error(f"All DOC extractors failed for {file_path}: {e}")
             return ""
 
     @staticmethod
@@ -180,54 +203,122 @@ class IngestionService:
             return False
 
     async def ingest_document(self, file_path: str, file_name: str) -> Dict[str, Any]:
-        """Ingest a single document"""
+        """
+        Ingest a single document, skipping if already present in ChromaDB by filename (or hash).
+        Now includes post-ingest verification, duplicate detection, and improved messaging.
+        """
         if not os.path.exists(file_path):
             return {"status": "error", "message": f"File not found: {file_path}", "file_name": file_name}
-        
+
         if not self._is_supported_file(file_path):
             return {"status": "error", "message": f"Unsupported file type: {Path(file_path).suffix}", "file_name": file_name}
-        
+
         logger.info(f"Starting ingestion of {file_name}")
-        
+
         try:
+            # Check for existing document by filename (or hash)
+            try:
+                existing = self.vector_db_client.collection.get(where={"source": file_name}, limit=1)
+                if existing and existing.get("ids"):
+                    logger.info(f"[INGESTION] Document {file_name} already exists in DB. Skipping.")
+                    return {
+                        "status": "skipped",
+                        "message": f"Document {file_name} already exists in database. Skipped. (No duplicate ingested)",
+                        "file_name": file_name,
+                        "duplicate": True,
+                        "existing_ids": existing.get("ids", [])
+                    }
+            except Exception as e:
+                logger.warning(f"[INGESTION] Could not check for existing document: {e}")
+
             # Extract text
             text = self.document_processor.extract_text(file_path)
             if not text.strip():
                 return {"status": "warning", "message": f"No text content extracted from {file_name}", "file_name": file_name}
-            
+
             # Split into chunks
             chunks = self.text_splitter.split_text(text)
             if not chunks:
                 return {"status": "warning", "message": f"No text chunks created from {file_name}", "file_name": file_name}
-            
+
             # Prepare metadata
             doc_type = self.document_processor.get_document_type(file_path)
             metadatas = [
                 {
-                    "source": file_name, 
-                    "chunk": i+1, 
-                    "total_chunks": len(chunks), 
-                    "document_type": doc_type, 
-                    "file_path": file_path, 
+                    "source": file_name,
+                    "chunk": i+1,
+                    "total_chunks": len(chunks),
+                    "document_type": doc_type,
+                    "file_path": file_path,
                     "chunk_size": len(chunk)
-                } 
+                }
                 for i, chunk in enumerate(chunks)
             ]
             ids = [f"{file_name}_chunk_{i}" for i in range(len(chunks))]
-            
-            # Add to vector database
-            self.vector_db_client.add_documents(documents=chunks, metadatas=metadatas, ids=ids)
-            
-            logger.info(f"Successfully ingested {file_name} with {len(chunks)} chunks")
+
+            # Add to vector database with error handling and duplicate detection
+            add_result = False
+            try:
+                add_result = self.vector_db_client.add_documents(documents=chunks, metadatas=metadatas, ids=ids)
+            except Exception as e:
+                logger.error(f"Error adding documents to ChromaDB for {file_name}: {e}")
+                return {"status": "error", "message": f"Failed to add to ChromaDB: {str(e)}", "file_name": file_name}
+
+            if not add_result:
+                logger.error(f"ChromaDBClient.add_documents returned False for {file_name}. Possible duplicate or insertion error.")
+                # Check if all IDs already exist (true duplicate)
+                try:
+                    verify_result = self.vector_db_client.collection.get(ids=ids)
+                    found_ids = verify_result.get("ids", []) if verify_result else []
+                    if set(found_ids) == set(ids):
+                        logger.info(f"All chunks for {file_name} already exist in ChromaDB. Duplicate detected.")
+                        return {
+                            "status": "skipped",
+                            "message": f"Document {file_name} already exists in database. Skipped. (All chunks present, no duplicate ingested)",
+                            "file_name": file_name,
+                            "duplicate": True,
+                            "existing_ids": found_ids
+                        }
+                    else:
+                        logger.error(f"Some chunks for {file_name} missing after attempted insert. Missing: {set(ids) - set(found_ids)}")
+                        return {
+                            "status": "error",
+                            "message": f"Failed to insert all chunks for {file_name}. Missing: {set(ids) - set(found_ids)}",
+                            "file_name": file_name,
+                            "missing_ids": list(set(ids) - set(found_ids))
+                        }
+                except Exception as e:
+                    logger.error(f"Error during duplicate/verification check for {file_name}: {e}")
+                    return {"status": "error", "message": f"Verification error after failed insert: {str(e)}", "file_name": file_name}
+
+            # Post-ingest verification: query ChromaDB for all new ids
+            try:
+                verify_result = self.vector_db_client.collection.get(ids=ids)
+                found_ids = verify_result.get("ids", []) if verify_result else []
+                missing_ids = [i for i in ids if i not in found_ids]
+                if not found_ids or len(found_ids) < len(ids):
+                    logger.error(f"Post-ingest verification failed for {file_name}: {len(missing_ids)} chunks missing in ChromaDB")
+                    return {
+                        "status": "error",
+                        "message": f"Post-ingest verification failed: {len(missing_ids)} chunks missing in ChromaDB",
+                        "file_name": file_name,
+                        "missing_ids": missing_ids
+                    }
+            except Exception as e:
+                logger.error(f"Error during post-ingest verification for {file_name}: {e}")
+                return {"status": "error", "message": f"Post-ingest verification error: {str(e)}", "file_name": file_name}
+
+            logger.info(f"Successfully ingested {file_name} with {len(chunks)} chunks and verified in ChromaDB")
             return {
-                "status": "success", 
-                "message": f"Document {file_name} ingested successfully", 
-                "file_name": file_name, 
-                "chunks_created": len(chunks), 
-                "document_type": doc_type, 
-                "embedding_provider": self.provider
+                "status": "success",
+                "message": f"Document {file_name} ingested and verified successfully (all {len(ids)} chunks present)",
+                "file_name": file_name,
+                "chunks_created": len(chunks),
+                "document_type": doc_type,
+                "embedding_provider": self.provider,
+                "verified_ids": ids
             }
-            
+
         except Exception as e:
             logger.error(f"Error ingesting {file_name}: {e}")
             return {"status": "error", "message": f"Failed to ingest document: {str(e)}", "file_name": file_name}

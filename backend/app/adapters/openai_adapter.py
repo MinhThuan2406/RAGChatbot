@@ -1,5 +1,5 @@
 from openai import AsyncOpenAI
-from..services.llm_provider_factory import AbstractLLMClient, AbstractEmbeddingClient
+from ..core.interfaces import AbstractLLMClient, AbstractEmbeddingClient
 
 class OpenAIAdapter(AbstractLLMClient, AbstractEmbeddingClient):
     def __init__(self, api_key: str):
